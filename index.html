@@ -1,44 +1,435 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css" type="text/css" media="all" />
-  <title>Coffee..</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b2430">
+<title>PDF → kitobcha</title>
+<style>
+:root{
+  --paper:#f4f6f8; --card:#fff; --ink:#1b2430; --mute:#5d6b7a; --line:#d5dbe2;
+  --accent:#2447f5; --accent-ink:#fff; --ok:#12805c; --err:#b3261e; --sheet:#eef1f5;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{--paper:#111820; --card:#1a232e; --ink:#eef2f6; --mute:#93a1b0; --line:#2c3846;
+        --accent:#6f8bff; --accent-ink:#0b1220; --ok:#4cc79a; --err:#ff8a80; --sheet:#222e3b}
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--paper);color:var(--ink);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1080px;margin:0 auto;padding:20px 16px 40px}
+.narrow{max-width:520px;margin-left:auto;margin-right:auto}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font-size:1.6rem;line-height:1.15;margin:8px 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 20px}
+[hidden]{display:none!important}
+
+.lang{display:flex;gap:2px;padding:3px;background:var(--sheet);border-radius:10px;flex:none;margin-top:6px}
+.lang button{width:auto;min-height:36px;padding:6px 10px;font-size:.85rem;border-radius:8px;
+  background:transparent;color:var(--mute)}
+.lang button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--sheet);
+  border-radius:12px;margin-bottom:16px}
+.tabs button{background:transparent;color:var(--mute);padding:10px;min-height:44px;border-radius:9px}
+.tabs button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  text-align:center;padding:36px 16px;border:2px dashed var(--line);border-radius:14px;
+  background:var(--card);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent)}
+.drop.over{background:var(--sheet)}
+.drop:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.drop b{font-size:1.05rem}
+.drop span{color:var(--mute);font-size:.9rem}
+
+.field{display:block;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.field b{display:block;margin-bottom:8px}
+.field input{width:100%;font:inherit;font-size:1.25rem;font-variant-numeric:tabular-nums;padding:12px 14px;
+  border:1.5px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
+.field input:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.field small{display:block;margin-top:8px;color:var(--mute)}
+.field small.err{color:var(--err)}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:16px}
+.fname{font-weight:600;word-break:break-all;margin-bottom:4px}
+.stats{margin:0;color:var(--mute)}
+.stats strong{color:var(--ink)}
+
+.sheets{display:grid;grid-template-columns:1fr;gap:12px;margin-top:16px}
+@media (min-width:760px){.sheets{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.sheet h3{margin:0 0 8px;font-size:.95rem}
+.spread{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.side p{margin:0 0 4px;font-size:.8rem;color:var(--mute)}
+.pair{display:grid;grid-template-columns:1fr 1fr;aspect-ratio:1.414;border:1.5px solid var(--ink);
+  border-radius:4px;background:var(--sheet);position:relative;overflow:hidden}
+.pair::after{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1.5px dashed var(--mute)}
+.pair i{display:grid;place-items:center;font-style:normal;font-weight:700;font-size:1.05rem;
+  font-variant-numeric:tabular-nums}
+.pair i.blank{color:var(--mute);font-weight:400;font-size:.75rem}
+
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:14px 16px;width:100%;
+  cursor:pointer;background:var(--accent);color:var(--accent-ink);min-height:48px}
+button.alt{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.row{display:grid;gap:10px;margin-top:16px}
+.row.two{grid-template-columns:1fr 1fr}
+
+.bar{height:10px;border-radius:99px;background:var(--sheet);overflow:hidden;margin-top:12px}
+.bar > div{height:100%;width:0;background:var(--accent);transition:width .15s}
+.bar.busy > div{width:35%;animation:slide 1s ease-in-out infinite alternate}
+@keyframes slide{from{margin-left:0}to{margin-left:65%}}
+@media (prefers-reduced-motion:reduce){.bar.busy > div{animation:none;width:100%}}
+.pct{font-size:.85rem;color:var(--mute);margin-top:6px}
+
+.msg{margin-top:12px;font-size:.95rem}
+.msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+.tip{color:var(--mute);font-size:.88rem;margin:14px 0 0}
+</style>
 </head>
 <body>
-
-  <!-- Bosh qism -->
-  <div class="nav">
-    <div id="logo">
-      <a href="#"><h1>☕ Coffee</h1></a>
+<main>
+  <div class="narrow">
+    <div class="top">
+      <h1 data-i18n="title"></h1>
+      <div class="lang" role="group" aria-label="Language">
+        <button data-lang="uz" aria-pressed="true">UZ</button>
+        <button data-lang="ru" aria-pressed="false">RU</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
     </div>
-    <div id="menu">
-      <ul id="mlist">
-        <li><a href="#">BOSH SAHIFA</a></li>
-        <li><a href="#">BIZ HAQIMIZDA</a></li>
-        <li><a href="#">MENU</a></li>
-        <li><a href="#">FIKRLAR</a></li>
-        <li><a href="#">GALLEREYA</a></li>
-        <li><a href="#">ALOQA</a></li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- O'rta content qism -->
-  <div class="content">
-    <div id="item-hppb">
-      <h1>Best coffee</h1>
-      <p id="p1" >Make your day great with our special coffee!</p>
-      <p id="p2">Welcome to our coffee paradise, where every bean tells a story and every cup sparks joy.</p>
-      <button type="submit" id="btn1">Order Now</button>
-      <button type="submit" id="btn2">Contact Us</button>
-    </div>
-
-    <div id="item-img">
-      <img src="coffe.png" alt="Coffee Image" id="cfe">
+    <p class="sub" data-i18n="sub"></p>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-mode="pdf" aria-selected="true" data-i18n="tabPdf"></button>
+      <button role="tab" data-mode="count" aria-selected="false" data-i18n="tabCount"></button>
     </div>
   </div>
 
+  <div id="pdfView">
+    <label class="drop narrow" id="drop">
+      <b data-i18n="dropTitle"></b>
+      <span data-i18n="dropHint"></span>
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+    </label>
+
+    <div id="info" hidden>
+      <section class="panel narrow">
+        <div class="fname" id="fname"></div>
+        <p class="stats" id="stats"></p>
+        <div class="row"><button id="go" data-i18n="go"></button></div>
+        <div id="prog" hidden>
+          <div class="bar" id="bar"><div id="fill"></div></div>
+          <div class="pct" id="pct"></div>
+        </div>
+        <div class="msg" id="msg" role="status" aria-live="polite"></div>
+        <div class="row two" id="out" hidden>
+          <button id="dl" data-i18n="dl"></button>
+          <button id="share" class="alt" data-i18n="share"></button>
+        </div>
+        <p class="tip" id="tip" data-i18n="tip" hidden></p>
+      </section>
+      <div class="sheets" id="sheets"></div>
+    </div>
+  </div>
+
+  <div id="countView" hidden>
+    <label class="field narrow">
+      <b data-i18n="countLabel"></b>
+      <input type="number" id="n" inputmode="numeric" min="1" max="2000" step="1" data-i18n-ph="countPh">
+      <small id="cerr"></small>
+    </label>
+    <div id="calc" hidden>
+      <section class="panel narrow"><p class="stats" id="cstats"></p></section>
+      <div class="sheets" id="csheets"></div>
+    </div>
+  </div>
+</main>
+
+<script src="pdf-lib.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const A4W = 841.89, A4H = 595.28, MAX_COUNT = 2000;
+
+/* ---- tillar / языки / languages ---- */
+const I = {
+  uz: {
+    title: "PDF → kitobcha",
+    sub: "PDF tanlang yoki sahifalar sonini yozing: varaqlar tartibi shu zahoti chiqadi. Hammasi telefonda bajariladi, internet kerak emas.",
+    tabPdf: "PDF fayl", tabCount: "Sahifalar soni",
+    dropTitle: "PDF faylni tanlang", dropHint: "yoki shu yerga tashlang",
+    go: "Kitobchaga aylantirish", dl: "Yuklab olish", share: "Ulashish",
+    tip: "Chop etishda ikki tomonlama rejimni tanlang va qisqa qirrasi bo'yicha aylantiring (flip on short edge). Keyin varaqlarni o'rtadan buklang.",
+    countLabel: "Sahifalar (betlar) soni", countPh: "masalan, 10", hint: "PDF yuklamasdan ham hisoblab ko'rishingiz mumkin.",
+    errInt: "Sahifalar sonini butun son bilan yozing (1 dan boshlab).",
+    errBig: m => `Juda katta son. ${m} gacha yozing.`,
+    sheet: n => `${n}-varaq`, front: "Old tomoni", back: "Orqa tomoni", blank: "bo'sh",
+    sum: (n, b, s) => `Jami <strong>${n}</strong> ta sahifa, ` +
+      (b ? `<strong>${b}</strong> ta bo'sh sahifa qo'shildi` : `bo'sh sahifa kerak emas`) +
+      `, natijada <strong>${s}</strong> ta A4 varaq bo'ladi.`,
+    prepPages: "Sahifalar tayyorlanmoqda...", sheetProg: (i, n) => `Varaq ${i} / ${n}`, saving: "Fayl saqlanmoqda...",
+    notPdf: "Bu PDF fayl emas. Iltimos, .pdf tanlang.",
+    cantRead: "Faylni o'qib bo'lmadi. PDF buzilgan yoki parol bilan himoyalangan bo'lishi mumkin.",
+    noPages: "PDF ichida sahifa yo'q.",
+    ready: (f, mb) => `Tayyor: ${f} (${mb} MB)`,
+    fail: m => `Xatolik: ${m || "kitobchani yaratib bo'lmadi"}. Qayta urinib ko'ring.`,
+    savedDocs: f => `Saqlandi: Documents/Kitobcha/${f}`, saveFail: "Saqlab bo'lmadi. «Ulashish» tugmasi orqali saqlang.",
+    dlUnavail: "Bu ko'rinishda yuklab olish mavjud emas.", saved: f => `Saqlandi: ${f}`,
+    dlFail: "Yuklab olib bo'lmadi. Qayta urinib ko'ring.", shareDialog: "Kitobchani saqlash yoki yuborish"
+  },
+  ru: {
+    title: "PDF → брошюра",
+    sub: "Выберите PDF или введите число страниц, и порядок листов появится сразу. Всё работает на телефоне, интернет не нужен.",
+    tabPdf: "PDF-файл", tabCount: "Число страниц",
+    dropTitle: "Выберите PDF-файл", dropHint: "или перетащите сюда",
+    go: "Преобразовать в брошюру", dl: "Скачать", share: "Поделиться",
+    tip: "При печати выберите двустороннюю печать с переворотом по короткому краю (flip on short edge). Затем сложите листы пополам.",
+    countLabel: "Количество страниц", countPh: "например, 10", hint: "Можно посчитать и без загрузки PDF.",
+    errInt: "Введите целое число страниц (от 1).",
+    errBig: m => `Слишком большое число. Введите не больше ${m}.`,
+    sheet: n => `Лист ${n}`, front: "Лицевая сторона", back: "Оборот", blank: "пусто",
+    sum: (n, b, s) => `Всего страниц: <strong>${n}</strong>, ` +
+      (b ? `добавлено пустых: <strong>${b}</strong>` : `пустые страницы не нужны`) +
+      `, получится листов A4: <strong>${s}</strong>.`,
+    prepPages: "Подготовка страниц...", sheetProg: (i, n) => `Лист ${i} / ${n}`, saving: "Сохранение файла...",
+    notPdf: "Это не PDF-файл. Выберите файл .pdf.",
+    cantRead: "Не удалось прочитать файл. Возможно, PDF повреждён или защищён паролем.",
+    noPages: "В PDF нет страниц.",
+    ready: (f, mb) => `Готово: ${f} (${mb} МБ)`,
+    fail: m => `Ошибка: ${m || "не удалось создать брошюру"}. Попробуйте ещё раз.`,
+    savedDocs: f => `Сохранено: Documents/Kitobcha/${f}`, saveFail: "Не удалось сохранить. Сохраните через кнопку «Поделиться».",
+    dlUnavail: "Скачивание здесь недоступно.", saved: f => `Сохранено: ${f}`,
+    dlFail: "Не удалось скачать. Попробуйте ещё раз.", shareDialog: "Сохранить или отправить брошюру"
+  },
+  en: {
+    title: "PDF → booklet",
+    sub: "Pick a PDF or type the number of pages and the sheet layout appears right away. Everything runs on your phone, no internet needed.",
+    tabPdf: "PDF file", tabCount: "Page count",
+    dropTitle: "Choose a PDF file", dropHint: "or drop it here",
+    go: "Convert to booklet", dl: "Download", share: "Share",
+    tip: "When printing, choose double-sided and flip on short edge. Then fold the sheets in half.",
+    countLabel: "Number of pages", countPh: "e.g. 10", hint: "You can calculate without uploading a PDF.",
+    errInt: "Enter the number of pages as a whole number (1 or more).",
+    errBig: m => `Number too large. Enter ${m} or less.`,
+    sheet: n => `Sheet ${n}`, front: "Front", back: "Back", blank: "blank",
+    sum: (n, b, s) => `<strong>${n}</strong> pages in total, ` +
+      (b ? `<strong>${b}</strong> blank page${b > 1 ? "s" : ""} added` : `no blank pages needed`) +
+      `, giving <strong>${s}</strong> A4 sheets.`,
+    prepPages: "Preparing pages...", sheetProg: (i, n) => `Sheet ${i} / ${n}`, saving: "Saving file...",
+    notPdf: "This is not a PDF file. Please choose a .pdf.",
+    cantRead: "Could not read the file. The PDF may be damaged or password-protected.",
+    noPages: "The PDF has no pages.",
+    ready: (f, mb) => `Done: ${f} (${mb} MB)`,
+    fail: m => `Error: ${m || "could not create the booklet"}. Please try again.`,
+    savedDocs: f => `Saved: Documents/Kitobcha/${f}`, saveFail: "Could not save. Use the Share button to save it.",
+    dlUnavail: "Downloads are not available here.", saved: f => `Saved: ${f}`,
+    dlFail: "Could not download. Please try again.", shareDialog: "Save or send the booklet"
+  }
+};
+const LANGS = ["uz", "ru", "en"];
+function detectLang(){
+  try{ const s = localStorage.getItem("lang"); if (LANGS.includes(s)) return s; }catch(e){}
+  const n = (navigator.language || "").slice(0, 2).toLowerCase();
+  return LANGS.includes(n) ? n : "uz";
+}
+let lang = detectLang();
+const t = (k, ...a) => { const v = I[lang][k]; return typeof v === "function" ? v(...a) : v; };
+
+/* ---- holat ---- */
+let srcBytes = null, total = 0, fileOk = false, outBytes = null, outName = "";
+let countN = null, cKey = "hint", msgState = null;
+
+const isNative = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+function paintMsg(){
+  const m = $("#msg");
+  if (!msgState){ m.textContent = ""; m.className = "msg"; return; }
+  m.textContent = t(msgState.key, ...msgState.args); m.className = "msg " + msgState.kind;
+}
+function say(key, args, kind){ msgState = key ? { key, args: args || [], kind: kind || "" } : null; paintMsg(); }
+function paintCerr(){
+  const e = $("#cerr"); e.textContent = t(cKey, MAX_COUNT); e.className = cKey === "hint" ? "" : "err";
+}
+
+/* ---- umumiy: natija matni va varaqlar tartibi ---- */
+function summaryHTML(n){ const N = Math.ceil(n / 4) * 4; return t("sum", n, N - n, N / 4); }
+function renderSheets(n, el){
+  const N = Math.ceil(n / 4) * 4, sheets = N / 4;
+  const c = p => p > n ? `<i class="blank">${t("blank")}</i>` : `<i>${p}</i>`;
+  let h = "";
+  for (let i = 0; i < sheets; i++){
+    h += `<article class="sheet"><h3>${t("sheet", i + 1)}</h3><div class="spread">` +
+      `<div class="side"><p>${t("front")}</p><div class="pair">${c(N - 2 * i)}${c(1 + 2 * i)}</div></div>` +
+      `<div class="side"><p>${t("back")}</p><div class="pair">${c(2 + 2 * i)}${c(N - 1 - 2 * i)}</div></div>` +
+      `</div></article>`;
+  }
+  el.innerHTML = h;
+}
+
+function applyLang(){
+  document.documentElement.lang = lang; document.title = t("title");
+  document.querySelectorAll("[data-i18n]").forEach(e => e.textContent = t(e.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(e => e.placeholder = t(e.dataset.i18nPh));
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  if (fileOk){ $("#stats").innerHTML = summaryHTML(total); renderSheets(total, $("#sheets")); }
+  if (countN){ $("#cstats").innerHTML = summaryHTML(countN); renderSheets(countN, $("#csheets")); }
+  paintCerr(); paintMsg();
+}
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  try{ localStorage.setItem("lang", lang); }catch(e){}
+  applyLang();
+}));
+
+/* ---- rejimlar ---- */
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", String(x === b)));
+  $("#pdfView").hidden = b.dataset.mode !== "pdf";
+  $("#countView").hidden = b.dataset.mode !== "count";
+}));
+
+/* ---- sahifalar soni ---- */
+$("#n").addEventListener("input", () => {
+  const v = $("#n").value.trim(), n = parseInt(v, 10);
+  countN = null; $("#calc").hidden = true;
+  if (!v) cKey = "hint";
+  else if (!/^\d+$/.test(v) || n < 1) cKey = "errInt";
+  else if (n > MAX_COUNT) cKey = "errBig";
+  else { cKey = "hint"; countN = n; }
+  if (countN){
+    $("#cstats").innerHTML = summaryHTML(countN);
+    renderSheets(countN, $("#csheets"));
+    $("#calc").hidden = false;
+  }
+  paintCerr();
+});
+
+/* ---- fayl tanlash ---- */
+const drop = $("#drop"), input = $("#file");
+input.addEventListener("change", () => input.files[0] && loadFile(input.files[0]));
+["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", ev => { const f = ev.dataTransfer.files[0]; if (f) loadFile(f); });
+
+async function loadFile(f){
+  outBytes = null; fileOk = false; $("#out").hidden = true; $("#tip").hidden = true; $("#prog").hidden = true; say(null);
+  $("#info").hidden = false; $("#go").disabled = true;
+  $("#stats").textContent = ""; $("#sheets").innerHTML = ""; $("#fname").textContent = f.name;
+  if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf"){ say("notPdf", [], "err"); return; }
+  try{
+    srcBytes = new Uint8Array(await f.arrayBuffer());
+    const d = await PDFLib.PDFDocument.load(srcBytes, { ignoreEncryption: true });
+    total = d.getPageCount();
+  }catch(e){ say("cantRead", [], "err"); return; }
+  if (total < 1){ say("noPages", [], "err"); return; }
+  outName = f.name.replace(/\.pdf$/i, "") + "-booklet.pdf";
+  fileOk = true;
+  $("#stats").innerHTML = summaryHTML(total);
+  renderSheets(total, $("#sheets"));
+  $("#go").disabled = false;
+}
+
+/* ---- booklet algoritmi ---- */
+function progress(p, label){
+  const bar = $("#bar"); bar.classList.toggle("busy", p == null);
+  if (p != null) $("#fill").style.width = Math.round(p * 100) + "%";
+  $("#pct").textContent = label || "";
+}
+
+async function build(){
+  const { PDFDocument } = PDFLib;
+  const src = await PDFDocument.load(srcBytes, { ignoreEncryption: true });
+  const out = await PDFDocument.create();
+  const n = src.getPageCount(), N = Math.ceil(n / 4) * 4, sheets = N / 4;
+
+  progress(null, t("prepPages"));
+  await tick();
+  const emb = await out.embedPages(src.getPages());
+
+  const half = A4W / 2;
+  const place = (page, idx, col) => {           // idx: 1 dan boshlanadi
+    if (idx > n) return;                          // bo'sh sahifa
+    const e = emb[idx - 1];
+    const s = Math.min(half / e.width, A4H / e.height);
+    const w = e.width * s, h = e.height * s;
+    page.drawPage(e, { x: col * half + (half - w) / 2, y: (A4H - h) / 2, width: w, height: h });
+  };
+
+  for (let i = 0; i < sheets; i++){
+    const fr = out.addPage([A4W, A4H]);           // old: [N-2i, 1+2i]
+    place(fr, N - 2 * i, 0); place(fr, 1 + 2 * i, 1);
+    const bk = out.addPage([A4W, A4H]);           // orqa: [2+2i, N-1-2i]
+    place(bk, 2 + 2 * i, 0); place(bk, N - 1 - 2 * i, 1);
+    progress((i + 1) / sheets, t("sheetProg", i + 1, sheets));
+    await tick();
+  }
+  progress(null, t("saving"));
+  await tick();
+  return await out.save();
+}
+
+$("#go").addEventListener("click", async () => {
+  $("#go").disabled = true; $("#out").hidden = true; $("#tip").hidden = true; say(null);
+  $("#prog").hidden = false;
+  try{
+    outBytes = await build();
+    $("#prog").hidden = true;
+    say("ready", [outName, (outBytes.length / 1048576).toFixed(1)], "ok");
+    $("#out").hidden = false; $("#tip").hidden = false;
+  }catch(e){
+    $("#prog").hidden = true;
+    say("fail", [e && e.message], "err");
+  }finally{ $("#go").disabled = false; }
+});
+
+/* ---- yuklab olish / ulashish ---- */
+function toBase64(bytes){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(new Blob([bytes], { type: "application/pdf" }));
+  });
+}
+
+$("#dl").addEventListener("click", async () => {
+  if (!outBytes) return;
+  if (isNative()){
+    try{
+      const { Filesystem } = Capacitor.Plugins;
+      await Filesystem.writeFile({ path: "Kitobcha/" + outName, data: await toBase64(outBytes),
+        directory: "DOCUMENTS", recursive: true });
+      say("savedDocs", [outName], "ok");
+    }catch(e){ say("saveFail", [], "err"); }
+  }else{
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([outBytes], { type: "application/pdf" }));
+    a.download = outName; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+});
+
+$("#share").addEventListener("click", async () => {
+  if (!outBytes) return;
+  try{
+    if (isNative()){
+      const { Filesystem, Share } = Capacitor.Plugins;
+      const { uri } = await Filesystem.writeFile({ path: outName, data: await toBase64(outBytes), directory: "CACHE" });
+      await Share.share({ title: outName, url: uri, dialogTitle: t("shareDialog") });
+    }else{
+      const file = new File([outBytes], outName, { type: "application/pdf" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: outName });
+      else $("#dl").click();
+    }
+  }catch(e){ /* foydalanuvchi bekor qildi */ }
+});
+
+applyLang();
+</script>
 </body>
 </html>
